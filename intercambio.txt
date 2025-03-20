@@ -1,0 +1,5 @@
+    # Asegurarse de que la columna route_display se haya creado antes de usarla
+    gtfs_data['routes']['route_display'] = gtfs_data['routes'].apply(
+        lambda row: f"({row['route_short_name']}) {row['route_long_name']}", axis=1
+    )
+    
