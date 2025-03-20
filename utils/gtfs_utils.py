@@ -21,6 +21,7 @@ def load_gtfs_data(file, dist_units="km"):
     stop_times = feed.stop_times
     calendar = feed.calendar
     calendar_dates = feed.calendar_dates
+    shapes = feed.shapes
     
     # Eliminar el archivo temporal después de usarlo
     os.remove(tmp_file_path)
@@ -32,7 +33,8 @@ def load_gtfs_data(file, dist_units="km"):
         "trips": trips,
         "stop_times": stop_times,
         "calendar": calendar,
-        "calendar_dates": calendar_dates
+        "calendar_dates": calendar_dates,
+        "shapes": shapes
     }
 
 def check_required_files(gtfs_data):
