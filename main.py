@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.gtfs_utils import load_gtfs_data, check_integrity, check_required_files
+from utils.stops_utils import show_schedule_page, show_stop_times
 from utils.visualization import display_stops, display_calendar_and_dates, display_routes, display_route_map, display_route_directions, display_route_directions_map, display_route_directions_with_shapes
 
 st.set_page_config("Visor GTFS", layout="wide")
@@ -17,7 +18,7 @@ def show_gtfs_sidebar_and_content(gtfs_data):
     # 🔹 Sidebar principal con opciones
     page = st.sidebar.selectbox(
         "Selecciona una página",
-        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas"]  # ✅ Se ha añadido "Mapa de Rutas"
+        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas", "Horarios de paradas"]  
     )
 
     if page == "Inicio":
@@ -39,6 +40,9 @@ def show_gtfs_sidebar_and_content(gtfs_data):
 
     elif page == "Mapa de Rutas":  # ✅ Nueva opción
         show_route_selector_page(gtfs_data)  # Llama a la función que mostrará el selector y el mapa
+
+    elif page == "Horarios de paradas":
+        show_schedule_page(gtfs_data)       
 
 def show_route_selector_page(gtfs_data):
     """Muestra la página con el selector de rutas y el mapa de la ruta seleccionada"""
