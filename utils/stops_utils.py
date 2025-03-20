@@ -92,73 +92,72 @@ def show_schedule_page2(gtfs_data):
     if weekday_column:
         # Filtrar los servicios habilitados para ese día
         calendar_filtered = gtfs_data['calendar'][gtfs_data['calendar'][weekday_column] == 1]
+
+        # Convertir las fechas en calendar.txt a formato datetime para compararlas
+        calendar_filtered['start_date'] = pd.to_datetime(calendar_filtered['start_date'], format='%Y%m%d').dt.date
+        calendar_filtered['end_date'] = pd.to_datetime(calendar_filtered['end_date'], format='%Y%m%d').dt.date
         
-        # Filtrar las excepciones (calendar_dates)
-        exceptions_filtered = gtfs_data['calendar_dates'][(
-            gtfs_data['calendar_dates']['date'] == selected_date.strftime('%Y%m%d')) & 
-            (gtfs_data['calendar_dates']['exception_type'] == 1)
+        # Comprobar si la fecha seleccionada está dentro del rango de fechas en calendar
+        valid_date_range = calendar_filtered[
+            (calendar_filtered['start_date'] <= selected_date) & 
+            (calendar_filtered['end_date'] >= selected_date)
         ]
+        
 
-        # Filtrar los trips que están habilitados en el día seleccionado
-        trips_route = gtfs_data['trips'][(
-            gtfs_data['trips']['route_id'] == selected_route_id) & 
-            (gtfs_data['trips']['service_id'].isin(calendar_filtered['service_id'])) | 
-            (gtfs_data['trips']['service_id'].isin(exceptions_filtered['service_id']))
-        ]
+        if valid_date_range.empty:
+            st.write("No hay datos disponibles para la fecha seleccionada.")
+        else:
+            # Filtrar las excepciones (calendar_dates)
+            exceptions_filtered = gtfs_data['calendar_dates'][(
+                gtfs_data['calendar_dates']['date'] == selected_date.strftime('%Y%m%d')) & 
+                (gtfs_data['calendar_dates']['exception_type'] == 1)
+            ]
 
-        # Filtrar las paradas y horarios para esos trips
-        stop_times_filtered = gtfs_data['stop_times'][gtfs_data['stop_times']['trip_id'].isin(trips_route['trip_id'])]
+            trips_route = gtfs_data['trips'][(
+                gtfs_data['trips']['route_id'] == selected_route_id) & 
+                (gtfs_data['trips']['service_id'].isin(calendar_filtered['service_id'])) | 
+                (gtfs_data['trips']['service_id'].isin(exceptions_filtered['service_id']))
+            ]
 
-        # Unir con los datos de las paradas (nombre y ubicación)
-        stop_times_filtered = stop_times_filtered.merge(
-            gtfs_data['stops'][['stop_id', 'stop_name', 'stop_lat', 'stop_lon']],
-            on='stop_id', how='left'
-        )
+            # Filtrar las paradas y horarios para esos trips
+            stop_times_filtered = gtfs_data['stop_times'][gtfs_data['stop_times']['trip_id'].isin(trips_route['trip_id'])]
 
-        # Unir con los trips para obtener el trip_id y otros detalles
-        stop_times_filtered = stop_times_filtered.merge(
-            trips_route[['trip_id', 'trip_headsign', 'direction_id']],
-            on='trip_id', how='left'
-        )
+            # Unir con los datos de las paradas (nombre y ubicación)
+            stop_times_filtered = stop_times_filtered.merge(
+                gtfs_data['stops'][['stop_id', 'stop_name', 'stop_lat', 'stop_lon']],
+                on='stop_id', how='left'
+            )
 
-        # Filtrar por dirección (ida o vuelta)
-        ida_filtered = stop_times_filtered[stop_times_filtered['direction_id'] == 0]
-        vuelta_filtered = stop_times_filtered[stop_times_filtered['direction_id'] == 1]
+            # Unir con los trips para obtener el trip_id y otros detalles
+            stop_times_filtered = stop_times_filtered.merge(
+                trips_route[['trip_id', 'trip_headsign', 'direction_id']],
+                on='trip_id', how='left'
+            )
 
-        # Ordenar por stop_sequence para asegurar que las paradas estén en el orden correcto dentro de la ruta
-        ida_filtered = ida_filtered.sort_values(by=['stop_sequence', 'departure_time'])
-        vuelta_filtered = vuelta_filtered.sort_values(by=['stop_sequence', 'departure_time'])
+            # Filtrar por dirección (ida o vuelta)
+            ida_filtered = stop_times_filtered[stop_times_filtered['direction_id'] == 0]
+            vuelta_filtered = stop_times_filtered[stop_times_filtered['direction_id'] == 1]
 
-        # Mostrar los horarios y los detalles de los trips en un DataFrame
-        st.write(f"### Horarios de la Ruta '{selected_route_display}' para el {selected_date.strftime('%d/%m/%Y')}")
+            # Ordenar por stop_sequence para asegurar que las paradas estén en el orden correcto dentro de la ruta
+            ida_filtered = ida_filtered.sort_values(by=['stop_sequence', 'departure_time'])
+            vuelta_filtered = vuelta_filtered.sort_values(by=['stop_sequence', 'departure_time'])
 
-        # Crear los DataFrames con las columnas que queremos mostrar (ida)
-        df_schedule_ida = ida_filtered[['stop_name', 'trip_headsign', 'departure_time', 'trip_id', 'direction_id', 'stop_sequence']]
-        df_schedule_vuelta = vuelta_filtered[['stop_name', 'trip_headsign', 'departure_time', 'trip_id', 'direction_id', 'stop_sequence']]
+            # Mostrar los horarios y los detalles de los trips en un DataFrame
+            st.write(f"### Horarios de la Ruta '{selected_route_display}' para el {selected_date.strftime('%d/%m/%Y')}")
 
-        # Convertir el horario de llegada y salida al formato deseado (solo mostrar la hora sin fecha)
-        df_schedule_ida['departure_time'] = pd.to_datetime(df_schedule_ida['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
-        df_schedule_vuelta['departure_time'] = pd.to_datetime(df_schedule_vuelta['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
+            # Crear los DataFrames con las columnas que queremos mostrar (ida)
+            df_schedule_ida = ida_filtered[['stop_name', 'trip_headsign', 'departure_time', 'trip_id', 'direction_id', 'stop_sequence']]
+            df_schedule_vuelta = vuelta_filtered[['stop_name', 'trip_headsign', 'departure_time', 'trip_id', 'direction_id', 'stop_sequence']]
 
-        # # Repetir el nombre de la parada y agregar trip_id y departure_time para que se vea la frecuencia
-        # df_schedule_ida = df_schedule_ida.groupby(['stop_name', 'trip_headsign', 'trip_id'], as_index=False).agg({
-        #     'departure_time': ', '.join
-        # })
+            # Convertir el horario de llegada y salida al formato deseado (solo mostrar la hora sin fecha)
+            df_schedule_ida['departure_time'] = pd.to_datetime(df_schedule_ida['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
+            df_schedule_vuelta['departure_time'] = pd.to_datetime(df_schedule_vuelta['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
 
-        # df_schedule_vuelta = df_schedule_vuelta.groupby(['stop_name', 'trip_headsign', 'trip_id'], as_index=False).agg({
-        #     'departure_time': ', '.join
-        # })
+            st.write("#### Dirección de ida")
+            st.dataframe(df_schedule_ida)
 
-        # # Ordenar por stop_sequence para cada trip, para asegurar que el orden es el correcto
-        # df_schedule_ida['stop_name'] = pd.Categorical(df_schedule_ida['stop_name'], categories=sorted(df_schedule_ida['stop_name'].unique(), key=lambda x: stop_times_filtered[stop_times_filtered['stop_name'] == x]['stop_sequence'].iloc[0]))
-        # df_schedule_vuelta['stop_name'] = pd.Categorical(df_schedule_vuelta['stop_name'], categories=sorted(df_schedule_vuelta['stop_name'].unique(), key=lambda x: stop_times_filtered[stop_times_filtered['stop_name'] == x]['stop_sequence'].iloc[0]))
-
-        # Mostrar los DataFrames con Streamlit
-        st.write("#### Ida (0:00 - Dirección de ida)")
-        st.dataframe(df_schedule_ida)
-
-        st.write("#### Vuelta (1:00 - Dirección de vuelta)")
-        st.dataframe(df_schedule_vuelta)
+            st.write("#### Dirección de vuelta")
+            st.dataframe(df_schedule_vuelta)
 
     else:
         st.write("No se encontró una columna para el día seleccionado.")
