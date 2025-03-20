@@ -1,0 +1,5 @@
+streamlit==10.2.2
+gtfs_kit==0.2.1  # Asegúrate de que la versión sea la correcta
+pandas==2.2.2
+folium==0..19.4
+# Añade cualquier otra dependencia que necesites
