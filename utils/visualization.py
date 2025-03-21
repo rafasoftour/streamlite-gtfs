@@ -61,7 +61,6 @@ def display_stops(gtfs_data):
 
             # Mostrar el mapa
             folium_static(m, 2000, 600)
-
     else:
         st.warning("No se han encontrado datos de paradas.")
 
