@@ -1,5 +1,17 @@
 import streamlit as st
 import pandas as pd
+def normalize_gtfs_time(time_str):
+    """Corrige los horarios en formato GTFS que superan las 24:00:00."""
+    hours, minutes, seconds = map(int, time_str.split(":"))
+    
+    if hours >= 24:
+        hours -= 24  # Restar 24 horas para normalizarlo a una hora del día siguiente
+    
+    # En caso de que la hora sea 24, la ajustamos a 00.
+    if hours == 24:
+        hours = 0
+    
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 def show_schedule_page(gtfs_data):
     # 📌 Selector de ruta con nombres combinados (short + long)
@@ -57,37 +69,39 @@ def show_stop_times(gtfs_data, route_id, direction_id, stop_id, stop_name):
     st.write(f"📍 Horarios para la parada {stop_name} ({stop_id}) en la ruta {route_id} ({direction_id})")
     st.dataframe(stop_times_filtered[['trip_id', 'stop_sequence', 'arrival_time', 'departure_time']])
 
-def get_stop_schedule(gtfs_data, df_stop_times, route_id, direction_id):
-    # Asegurarnos de que 'stop_times' tiene 'route_id' a través de 'trips'
-    df_stop_times = df_stop_times.merge(gtfs_data['trips'][['trip_id', 'route_id']], on='trip_id', how='left')
-
-    # Filtrar las paradas y horarios según ruta y dirección
-    filtered = df_stop_times[(df_stop_times['route_id'] == route_id) & (df_stop_times['direction_id'] == direction_id)]
-
-    # Ordenar por stop_sequence para obtener las paradas en orden
-    filtered = filtered.sort_values(by=['stop_sequence', 'arrival_time'])
-
-    # Obtener la primera hora de llegada para cada parada (la primera en la secuencia)
-    first_arrival_times = filtered.groupby('stop_name')['arrival_time'].first().reset_index()
-
-    # Calcular la frecuencia media de paso por cada parada
-    # Primero, convertimos la hora de llegada a un objeto de tipo datetime para calcular las diferencias
-    filtered['arrival_time'] = pd.to_datetime(filtered['arrival_time'], format='%H:%M:%S')
-
-    # Calcular la diferencia de tiempo entre cada par de llegadas para cada parada
-    filtered['time_diff'] = filtered.groupby('stop_name')['arrival_time'].diff().dt.total_seconds() / 60.0  # en minutos
-
-    # Calcular la frecuencia media por parada (excluyendo el primer NaN)
-    mean_frequency = filtered.groupby('stop_name')['time_diff'].mean().reset_index()
+def get_stop_schedule(gtfs_data, stop_times_filtered, route_id, direction_id):
+    # Filtrar por dirección
+    stop_times_filtered = stop_times_filtered[stop_times_filtered['direction_id'] == direction_id]
     
-    # Unir las dos tablas (primera hora de llegada y frecuencia media)
-    result = pd.merge(first_arrival_times, mean_frequency, on='stop_name', how='left')
+    # Agrupar por paradas
+    stops_schedule = []
+    for stop_id, group in stop_times_filtered.groupby('stop_id'):
+        group = group.sort_values(by='departure_time')
+        
+        # Obtener los horarios ordenados
+        # departure_times = group['departure_time'].tolist()
 
-    # Renombrar las columnas para mayor claridad
-    result.columns = ['stop_name', 'first_arrival_time', 'average_frequency_min']
+        # Normalizar horarios antes de procesarlos
 
-    # Devolver el DataFrame con la información solicitada
-    return result
+        departure_times = [normalize_gtfs_time(t) for t in group['departure_time']]
+        # Calcular diferencias entre horarios sucesivos
+        time_diffs = pd.to_datetime(departure_times, format='%H:%M:%S').diff().dropna()
+        time_diffs_minutes = time_diffs.total_seconds() / 60  # Convertir a minutos
+        
+        # Media de la frecuencia
+        avg_frequency = pd.Series(time_diffs_minutes).mean() if not time_diffs_minutes.empty else None
+        
+        # Guardar los datos en la lista
+        stops_schedule.append({
+            'stop_name': group['stop_name'].iloc[0],
+            'departure_times': ', '.join(departure_times),
+            'time_diffs': ', '.join(time_diffs_minutes.astype(str)) if not time_diffs_minutes.empty else '-',
+            'avg_frequency (min)': round(avg_frequency, 2) if avg_frequency is not None else '-'
+        })
+    
+    # Convertir a DataFrame y devolverlo
+    return pd.DataFrame(stops_schedule)
+
 
 def show_schedule_page2(gtfs_data):
     # Asegurarse de que la columna route_display se haya creado antes de usarla
@@ -189,7 +203,14 @@ def show_schedule_page2(gtfs_data):
             df_schedule_vuelta = vuelta_filtered[['stop_name', 'trip_headsign', 'departure_time', 'trip_id', 'direction_id', 'stop_sequence']]
 
             # Convertir el horario de llegada y salida al formato deseado (solo mostrar la hora sin fecha)
+            # df_schedule_ida['departure_time'] = pd.to_datetime(normalize_gtfs_time(df_schedule_ida['departure_time']), format='%H:%M:%S').dt.strftime('%H:%M')
+            # df_schedule_vuelta['departure_time'] = pd.to_datetime(normalize_gtfs_time(df_schedule_vuelta['departure_time']), format='%H:%M:%S').dt.strftime('%H:%M')
+
+            # Aplicar la normalización a los tiempos
+            df_schedule_ida['departure_time'] = df_schedule_ida['departure_time'].astype(str).apply(normalize_gtfs_time)
             df_schedule_ida['departure_time'] = pd.to_datetime(df_schedule_ida['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
+
+            df_schedule_vuelta['departure_time'] = df_schedule_vuelta['departure_time'].astype(str).apply(normalize_gtfs_time)
             df_schedule_vuelta['departure_time'] = pd.to_datetime(df_schedule_vuelta['departure_time'], format='%H:%M:%S').dt.strftime('%H:%M')
 
             st.write("#### Dirección de ida")
