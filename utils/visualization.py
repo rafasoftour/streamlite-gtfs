@@ -3,16 +3,35 @@ import folium
 from folium.plugins import MarkerCluster
 from streamlit_folium import folium_static
 
+import folium
+from streamlit_folium import folium_static
+
 def display_stops(gtfs_data):
-    """ Muestra las paradas del GTFS como un dataframe """
+    """ Muestra las paradas del GTFS con filtros por stop_code y stop_name """
     st.title("Información de las paradas en fichero")
     stops = gtfs_data.get("stops")
+    
     if stops is not None:
+        # Crear dos columnas para los filtros, por encima del dataframe
+        col1, col2 = st.columns(2)
+
+        # Filtro por stop_code
+        with col1:
+            stop_code_filter = st.text_input("Filtrar por Código de Parada (stop_code):")
+            if stop_code_filter:
+                stops = stops[stops['stop_code'].str.contains(stop_code_filter, case=False, na=False)]
+
+        # Filtro por stop_name
+        with col2:
+            stop_name_filter = st.text_input("Filtrar por Nombre de Parada (stop_name):")
+            if stop_name_filter:
+                stops = stops[stops['stop_name'].str.contains(stop_name_filter, case=False, na=False)]
+
+        # Mostrar la cantidad total de registros después de aplicar los filtros
+        st.write("Total de paradas: ", stops.shape[0])
+
         # Crear un espacio vacío para actualizar el dataframe
         placeholder = st.empty()
-
-        # Mostrar la cantidad total de registros
-        st.write("Total de paradas: ", stops.shape[0])
 
         # Limitar la visualización a las primeras 1000 filas
         displayed_data = stops.head(1000)
@@ -25,6 +44,24 @@ def display_stops(gtfs_data):
             if st.button("Mostrar más paradas"):
                 # Mostrar más registros, actualizando el dataframe en el mismo lugar
                 placeholder.dataframe(stops)
+
+        # Botón para mostrar el mapa
+        if st.button("Mostrar paradas en mapa"):
+            # Crear un mapa centrado en el promedio de las coordenadas de las paradas
+            map_center = [stops['stop_lat'].mean(), stops['stop_lon'].mean()]
+            m = folium.Map(location=map_center, zoom_start=13)
+
+            # Añadir un marcador para cada parada en el mapa
+            for _, row in stops.iterrows():
+                folium.Marker(
+                    location=[row['stop_lat'], row['stop_lon']],
+                    popup=f"<strong>{row['stop_name']}</strong>",
+                    icon=folium.Icon(color="blue", icon="info-sign")
+                ).add_to(m)
+
+            # Mostrar el mapa
+            folium_static(m, 2000, 600)
+
     else:
         st.warning("No se han encontrado datos de paradas.")
 
