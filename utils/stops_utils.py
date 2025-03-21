@@ -121,33 +121,36 @@ def show_schedule_page2(gtfs_data):
     weekday_column = weekday_columns.get(selected_day_of_week)
     
     if weekday_column:
-        # Filtrar los servicios habilitados para ese día
-        calendar_filtered = gtfs_data['calendar'][gtfs_data['calendar'][weekday_column] == 1]
+        # Filtrar los servicios habilitados para ese día de la semana
+        calendar_filtered = gtfs_data['calendar'][gtfs_data['calendar'][weekday_column] == 1].copy()
 
         # Convertir las fechas en calendar.txt a formato datetime para compararlas
         calendar_filtered['start_date'] = pd.to_datetime(calendar_filtered['start_date'], format='%Y%m%d').dt.date
         calendar_filtered['end_date'] = pd.to_datetime(calendar_filtered['end_date'], format='%Y%m%d').dt.date
         
-        # Comprobar si la fecha seleccionada está dentro del rango de fechas en calendar
-        valid_date_range = calendar_filtered[
+        # Filtrar solo los servicios cuya fecha seleccionada está en su rango de actividad
+        calendar_filtered = calendar_filtered[
             (calendar_filtered['start_date'] <= selected_date) & 
             (calendar_filtered['end_date'] >= selected_date)
         ]
-        
 
-        if valid_date_range.empty:
+        # Filtrar las excepciones de calendar_dates que activan servicios en esa fecha
+        exceptions_filtered = gtfs_data['calendar_dates'][(
+            gtfs_data['calendar_dates']['date'] == selected_date.strftime('%Y%m%d')) & 
+            (gtfs_data['calendar_dates']['exception_type'] == 1)
+        ]
+
+        # Si no hay servicios activos ni excepciones, no mostramos datos
+        if calendar_filtered.empty and exceptions_filtered.empty:
             st.write("No hay datos disponibles para la fecha seleccionada.")
         else:
-            # Filtrar las excepciones (calendar_dates)
-            exceptions_filtered = gtfs_data['calendar_dates'][(
-                gtfs_data['calendar_dates']['date'] == selected_date.strftime('%Y%m%d')) & 
-                (gtfs_data['calendar_dates']['exception_type'] == 1)
-            ]
+            # Obtener los IDs de servicio válidos combinando los del calendar con las excepciones
+            valid_services = set(calendar_filtered['service_id']).union(set(exceptions_filtered['service_id']))
 
-            trips_route = gtfs_data['trips'][(
-                gtfs_data['trips']['route_id'] == selected_route_id) & 
-                (gtfs_data['trips']['service_id'].isin(calendar_filtered['service_id'])) | 
-                (gtfs_data['trips']['service_id'].isin(exceptions_filtered['service_id']))
+            # Filtrar los viajes de la ruta seleccionada con servicios válidos
+            trips_route = gtfs_data['trips'][
+                (gtfs_data['trips']['route_id'] == selected_route_id) & 
+                (gtfs_data['trips']['service_id'].isin(valid_services))
             ]
 
             # Filtrar las paradas y horarios para esos trips
