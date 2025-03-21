@@ -1,5 +1,9 @@
 import streamlit as st
 import pandas as pd
+import locale
+
+
+
 def normalize_gtfs_time(time_str):
     """Corrige los horarios en formato GTFS que superan las 24:00:00."""
     hours, minutes, seconds = map(int, time_str.split(":"))
@@ -114,8 +118,11 @@ def show_schedule_page2(gtfs_data):
     selected_route_display = st.selectbox("Selecciona una Ruta 🚌", route_options['route_display'], key="r1")
     selected_route_id = route_options[route_options['route_display'] == selected_route_display]['route_id'].iloc[0]
 
+    # Establecer la localización a español (España)
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+
     # Selección de la fecha con formato español (DD/MM/YYYY)
-    selected_date = st.date_input("Selecciona una Fecha", pd.to_datetime("today"), key="date_input", format="DD/MM/YYYY")
+    selected_date = st.date_input("Selecciona una fecha", pd.to_datetime("today"), key="date_input", format="DD/MM/YYYY")
     
     # Obtener los días de la semana de la fecha seleccionada (lunes=0, domingo=6)
     selected_day_of_week = selected_date.weekday()
