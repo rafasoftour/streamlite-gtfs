@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-
+import folium
+from folium.plugins import MarkerCluster
+from streamlit_folium import folium_static
 
 
 
@@ -231,3 +233,214 @@ def show_schedule_page2(gtfs_data):
 
     else:
         st.write("No se encontró una columna para el día seleccionado.")
+
+# def show_routes_per_stop(gtfs_data):
+#     stop_times = gtfs_data['stop_times']
+#     trips = gtfs_data['trips']
+#     routes = gtfs_data['routes']
+#     stops = gtfs_data['stops']
+#     shapes = gtfs_data['shapes']
+
+#     # Unir stop_times con trips para obtener el route_id y direction_id
+#     stop_routes = stop_times.merge(trips[['trip_id', 'route_id', 'direction_id']], on='trip_id', how='left')
+
+#     # Agrupar por stop_id, route_id y direction_id
+#     stop_routes_count = stop_routes.groupby(['stop_id', 'route_id', 'direction_id']).size().reset_index(name='frequency')
+
+#     # Unir con nombres de paradas y rutas
+#     stops_with_routes = stop_routes_count.merge(stops[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']], on='stop_id', how='left')
+#     stops_with_routes = stops_with_routes.merge(routes[['route_id', 'route_short_name']], on='route_id', how='left')
+
+#     # Interfaz en Streamlit
+#     st.subheader("Consulta de líneas por parada")
+
+#     # 🔍 Buscador de paradas
+#     search_query = st.text_input("Buscar parada por nombre:")
+#     filtered_stops = stops_with_routes['stop_name'].unique()
+
+#     if search_query:
+#         filtered_stops = [stop for stop in filtered_stops if search_query.lower() in stop.lower()]
+
+#     # Selector de parada
+#     selected_stop_name = st.selectbox("Selecciona una parada:", filtered_stops)
+
+#     # Filtrar datos por la parada seleccionada
+#     selected_stop_data = stops_with_routes[stops_with_routes['stop_name'] == selected_stop_name]
+
+#     if not selected_stop_data.empty:
+#         st.write(f"### Parada: {selected_stop_name}")
+
+#         # Agrupar por dirección de la ruta
+#         directions = {0: ("🚀➡️ Ida", "blue"), 1: ("🔄⬅️ Vuelta", "red")}
+
+#         for direction_id, (direction_label, color) in directions.items():
+#             direction_data = selected_stop_data[selected_stop_data['direction_id'] == direction_id]
+
+#             if not direction_data.empty:
+#                 st.markdown(f"### <span style='color:{color};'>{direction_label}</span>", unsafe_allow_html=True)
+
+#                 # Ordenar por frecuencia
+#                 direction_data = direction_data.sort_values(by='frequency', ascending=False)
+
+#                 for _, row in direction_data.iterrows():
+#                     st.markdown(f"🚍 <span style='color:{color};'>**Línea {row['route_short_name']}**</span> - {row['frequency']} pasadas/día", unsafe_allow_html=True)
+
+#                     # ⏰ Obtener horarios únicos por ruta
+#                     trip_ids = trips[(trips['route_id'] == row['route_id']) & (trips['direction_id'] == direction_id)]['trip_id']
+#                     route_times = stop_times[(stop_times['stop_id'] == row['stop_id']) & (stop_times['trip_id'].isin(trip_ids))]
+
+#                     # Extraer y ordenar horarios únicos
+#                     unique_times = sorted(route_times['departure_time'].unique())
+
+#                     # Mostrar horarios limpios
+#                     st.markdown(f"⏳ <span style='color:{color};'>**Horarios:**</span> {', '.join(unique_times)}", unsafe_allow_html=True)
+#         # Crear un mapa centrado en la parada seleccionada
+#         m = folium.Map(location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]], zoom_start=15)
+
+#         # Añadir marcador para la parada
+#         folium.Marker(
+#             location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]],
+#             popup=f"<strong>{selected_stop_name}</strong>",
+#             icon=folium.Icon(color="green", icon="info-sign")
+#         ).add_to(m)
+
+#         # Mostrar las rutas asociadas a la parada seleccionada
+#         selected_routes = selected_stop_data['route_id'].unique()
+
+#         # Filtrar los shapes de las rutas seleccionadas
+#         for route_id in selected_routes:
+#             # Obtener el nombre de la línea
+#             route_name = selected_stop_data[selected_stop_data['route_id'] == route_id]['route_short_name'].iloc[0]
+            
+#             # Filtrar los shapes para esta ruta
+#             route_shapes = shapes[shapes['shape_id'].isin(trips[trips['route_id'] == route_id]['shape_id'])]
+
+#             # Convertir las coordenadas de los shapes en una lista de latitudes y longitudes
+#             route_coordinates = route_shapes[['shape_pt_lat', 'shape_pt_lon']].values.tolist()
+
+#             # Dibujar la línea de la ruta en el mapa
+#             folium.PolyLine(route_coordinates, color="blue", weight=2.5, opacity=1).add_to(m)
+
+#             # Añadir marcador con el nombre de la línea en el centro de la ruta
+#             mid_point = route_coordinates[len(route_coordinates) // 2]
+#             folium.Marker(
+#                 location=[mid_point[0], mid_point[1]],
+#                 popup=f"<strong>Línea: {route_name}</strong>",
+#                 icon=folium.Icon(color="blue", icon="cloud")
+#             ).add_to(m)
+
+#         # Mostrar el mapa con las rutas y la parada
+#         st.subheader("Mapa de rutas y parada")
+#         folium_static(m, 2000, 600)                    
+#     else:
+#         st.write("No hay rutas registradas para esta parada.")
+
+
+def show_routes_per_stop(gtfs_data):
+    stop_times = gtfs_data['stop_times']
+    trips = gtfs_data['trips']
+    routes = gtfs_data['routes']
+    stops = gtfs_data['stops']
+    shapes = gtfs_data['shapes']
+
+    # Unir stop_times con trips para obtener el route_id y direction_id
+    stop_routes = stop_times.merge(trips[['trip_id', 'route_id', 'direction_id']], on='trip_id', how='left')
+
+    # Agrupar por stop_id, route_id y direction_id
+    stop_routes_count = stop_routes.groupby(['stop_id', 'route_id', 'direction_id']).size().reset_index(name='frequency')
+
+    # Unir con nombres de paradas y rutas
+    stops_with_routes = stop_routes_count.merge(stops[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']], on='stop_id', how='left')
+    stops_with_routes = stops_with_routes.merge(routes[['route_id', 'route_short_name', 'route_color']], on='route_id', how='left')
+
+    # Interfaz en Streamlit
+    st.subheader("Consulta de líneas por parada")
+
+    # 🔍 Buscador de paradas
+    search_query = st.text_input("Buscar parada por nombre:")
+    filtered_stops = stops_with_routes['stop_name'].unique()
+
+    if search_query:
+        filtered_stops = [stop for stop in filtered_stops if search_query.lower() in stop.lower()]
+
+    # Selector de parada
+    selected_stop_name = st.selectbox("Selecciona una parada:", filtered_stops)
+
+    # Filtrar datos por la parada seleccionada
+    selected_stop_data = stops_with_routes[stops_with_routes['stop_name'] == selected_stop_name]
+
+    if not selected_stop_data.empty:
+        st.write(f"### Parada: {selected_stop_name}")
+        route_legends = []  # Lista para almacenar las leyendas de las rutas
+        # Agrupar por dirección de la ruta
+        directions = {0: ("🚀➡️ Ida", "blue"), 1: ("🔄⬅️ Vuelta", "red")}
+
+        for direction_id, (direction_label, color) in directions.items():
+            direction_data = selected_stop_data[selected_stop_data['direction_id'] == direction_id]
+
+            if not direction_data.empty:
+                st.markdown(f"### <span style='color:{color};'>{direction_label}</span>", unsafe_allow_html=True)
+
+                # Ordenar por frecuencia
+                direction_data = direction_data.sort_values(by='frequency', ascending=False)
+
+                for _, row in direction_data.iterrows():
+                    st.markdown(f"🚍 <span style='color:{color};'>**Línea {row['route_short_name']}**</span> - {row['frequency']} pasadas/día", unsafe_allow_html=True)
+
+                    # ⏰ Obtener horarios únicos por ruta
+                    trip_ids = trips[(trips['route_id'] == row['route_id']) & (trips['direction_id'] == direction_id)]['trip_id']
+                    route_times = stop_times[(stop_times['stop_id'] == row['stop_id']) & (stop_times['trip_id'].isin(trip_ids))]
+
+                    # Extraer y ordenar horarios únicos
+                    unique_times = sorted(route_times['departure_time'].unique())
+
+                    # Mostrar horarios limpios
+                    st.markdown(f"⏳ <span style='color:{color};'>**Horarios:**</span> {', '.join(unique_times)}", unsafe_allow_html=True)
+        
+        # Crear un mapa centrado en la parada seleccionada
+        m = folium.Map(location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]], zoom_start=15)
+
+        # Añadir marcador para la parada
+        folium.Marker(
+            location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]],
+            popup=f"<strong>{selected_stop_name}</strong>",
+            icon=folium.Icon(color="green", icon="info-sign")
+        ).add_to(m)
+
+        # Mostrar las rutas asociadas a la parada seleccionada
+        selected_routes = selected_stop_data['route_id'].unique()
+
+        # Filtrar los shapes de las rutas seleccionadas
+        for route_id in selected_routes:
+            # Obtener el nombre y color de la línea
+            route_name = selected_stop_data[selected_stop_data['route_id'] == route_id]['route_short_name'].iloc[0]
+            route_color = selected_stop_data[selected_stop_data['route_id'] == route_id]['route_color'].iloc[0]  # Usar el color de la ruta
+
+            # Asegurarse de que el color esté en formato válido (agregar '#' si es necesario)
+            if not route_color.startswith('#'):
+                route_color = '#' + route_color  # Agregar el '#' al inicio del color hexadecimal
+            
+            
+            # Filtrar los shapes para esta ruta
+            route_shapes = shapes[shapes['shape_id'].isin(trips[trips['route_id'] == route_id]['shape_id'])]
+
+            # Convertir las coordenadas de los shapes en una lista de latitudes y longitudes
+            route_coordinates = route_shapes[['shape_pt_lat', 'shape_pt_lon']].values.tolist()
+
+            # Dibujar la línea de la ruta en el mapa usando el color de la ruta
+            folium.PolyLine(route_coordinates, color=route_color, weight=2.5, opacity=1).add_to(m)
+
+            # Agregar leyenda para la línea
+            route_legends.append(f"<div style='color:{route_color};'>Línea {route_name}</div>")
+
+        # Mostrar las leyendas al lado del mapa
+        if route_legends:
+            st.markdown("<div style='font-size: 14px; font-weight: bold;'>Leyenda de rutas:</div>", unsafe_allow_html=True)
+            for legend in route_legends:
+                st.markdown(legend, unsafe_allow_html=True)
+
+        # Mostrar el mapa con las rutas y la parada
+        st.subheader("Mapa de rutas y parada")
+        folium_static(m, 2000, 600)
+    else:
+        st.write("No hay rutas registradas para esta parada.")

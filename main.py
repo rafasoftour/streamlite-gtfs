@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.gtfs_utils import load_gtfs_data, check_integrity, check_required_files
-from utils.stops_utils import show_schedule_page, show_schedule_page2
+from utils.stops_utils import show_schedule_page, show_schedule_page2, show_routes_per_stop
 from utils.services_utils import show_services_page
 from utils.visualization import display_stops, display_calendar_and_dates, display_routes, display_route_map, display_route_directions, display_route_directions_map, display_route_directions_with_shapes
 
@@ -19,7 +19,7 @@ def show_gtfs_sidebar_and_content(gtfs_data):
     # 🔹 Sidebar principal con opciones
     page = st.sidebar.selectbox(
         "Selecciona una página",
-        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas", "Horarios de paradas", "Información de servicios"]  
+        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas", "Horarios de paradas", "Rutas por parada", "Información de servicios"]  
     )
 
     if page == "Inicio":
@@ -45,6 +45,9 @@ def show_gtfs_sidebar_and_content(gtfs_data):
     elif page == "Horarios de paradas":
         show_schedule_page2(gtfs_data)   
         show_schedule_page(gtfs_data)    
+
+    elif page == "Rutas por parada":
+        show_routes_per_stop(gtfs_data)           
 
 
     elif page == "Información de servicios":
