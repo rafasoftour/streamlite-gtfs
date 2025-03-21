@@ -39,7 +39,7 @@ def load_gtfs_data(file, dist_units="km"):
 
 def check_required_files(gtfs_data):
     """Verifica si los archivos requeridos están presentes."""
-    required_files = ["routes", "stops", "trips", "stop_times", "calendar", "calendar_dates"]
+    required_files = ["routes", "stops", "trips", "stop_times", "calendar", "calendar_dates", "shapes"]
     missing_files = [file for file in required_files if file not in gtfs_data]
     
     if missing_files:
