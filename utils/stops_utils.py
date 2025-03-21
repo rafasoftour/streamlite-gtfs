@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import locale
+
 
 
 
@@ -117,9 +117,6 @@ def show_schedule_page2(gtfs_data):
     route_options = gtfs_data['routes'][['route_id', 'route_display']].drop_duplicates()
     selected_route_display = st.selectbox("Selecciona una Ruta 🚌", route_options['route_display'], key="r1")
     selected_route_id = route_options[route_options['route_display'] == selected_route_display]['route_id'].iloc[0]
-
-    # Establecer la localización a español (España)
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
     # Selección de la fecha con formato español (DD/MM/YYYY)
     selected_date = st.date_input("Selecciona una fecha", pd.to_datetime("today"), key="date_input", format="DD/MM/YYYY")
