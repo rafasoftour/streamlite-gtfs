@@ -54,8 +54,18 @@ def check_integrity(gtfs_data):
     
     # Verificar que todos los stop_id en stop_times existan en stops
     missing_stops = stop_times[~stop_times['stop_id'].isin(stops['stop_id'])]
-    
+
     if not missing_stops.empty:
         st.warning(f"Se encontraron paradas faltantes en stop_times: {missing_stops}")
+
     else:
         st.success("La integridad de los datos es correcta.")
+
+    # Verificar que todas las paradas tengan un nombre asociado
+    stops_without_name = stops[stops['stop_name'].isna() | (stops['stop_name'].str.strip() == '')]
+
+    if not stops_without_name.empty:
+        st.warning("Se encontraron paradas sin nombre asociado:")
+        st.dataframe(stops_without_name)
+    else:
+        st.success("Todas las paradas tienen un nombre válido.")
