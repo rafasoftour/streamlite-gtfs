@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.gtfs_utils import load_gtfs_data, check_integrity, check_required_files
-from utils.stops_utils import show_schedule_page, show_schedule_page2, show_routes_per_stop
+from utils.stops_utils import show_schedule_page, show_schedule_page2, show_routes_per_stop, show_routes_info_per_stop, show_routes_map_per_stop
 from utils.services_utils import show_services_page
 from utils.visualization import display_stops, display_calendar_and_dates, display_routes, display_route_map, display_route_directions, display_route_directions_map, display_route_directions_with_shapes
 
@@ -47,8 +47,9 @@ def show_gtfs_sidebar_and_content(gtfs_data):
         show_schedule_page(gtfs_data)    
 
     elif page == "Rutas por parada":
-        show_routes_per_stop(gtfs_data)           
-
+        # show_routes_per_stop(gtfs_data)           
+        stop_name = show_routes_info_per_stop(gtfs_data)
+        show_routes_map_per_stop(gtfs_data, stop_name)
 
     elif page == "Información de servicios":
         show_services_page(gtfs_data)   

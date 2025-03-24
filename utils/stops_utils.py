@@ -3,7 +3,7 @@ import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
 from streamlit_folium import folium_static
-
+from datetime import datetime
 
 
 def normalize_gtfs_time(time_str):
@@ -342,3 +342,154 @@ def show_routes_per_stop(gtfs_data):
         folium_static(m, 2000, 600)
     else:
         st.write("No hay rutas registradas para esta parada.")
+
+
+def show_routes_info_per_stop(gtfs_data):
+    stop_times = gtfs_data['stop_times']
+    trips = gtfs_data['trips']
+    routes = gtfs_data['routes']
+    stops = gtfs_data['stops']
+    calendar = gtfs_data['calendar']
+    calendar_dates = gtfs_data['calendar_dates']
+    
+    # Interfaz en Streamlit
+    st.subheader("Consulta de líneas por parada y fecha")
+    
+    # Selector de fecha
+    selected_date = st.date_input("Selecciona una fecha:", value=datetime.today().date())
+    day_of_week = selected_date.weekday()  # 0 = Lunes, 6 = Domingo
+    
+    # Buscador de paradas
+    search_query = st.text_input("Buscar parada por nombre:")
+    filtered_stops = stops['stop_name'].unique()
+    
+    if search_query:
+        filtered_stops = [stop for stop in filtered_stops if search_query.lower() in stop.lower()]
+    
+    # Selector de parada
+    selected_stop_name = st.selectbox("Selecciona una parada:", filtered_stops)
+    
+    # Filtrar datos por la parada seleccionada
+    selected_stop_data = stops[stops['stop_name'] == selected_stop_name]
+    
+    if not selected_stop_data.empty:
+        st.write(f"### Parada: {selected_stop_name}")
+        
+        # Obtener servicios activos en la fecha seleccionada
+        active_services = set(calendar_dates[calendar_dates['date'] == selected_date.strftime('%Y%m%d')]['service_id'])
+        
+        # Filtrar los servicios que están activos en el día de la semana seleccionado
+        weekday_columns = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        weekday_filter = weekday_columns[day_of_week]
+        active_weekday_services = set(calendar[(calendar[weekday_filter] == 1) & 
+                                               (calendar['start_date'] <= selected_date.strftime('%Y%m%d')) & 
+                                               (calendar['end_date'] >= selected_date.strftime('%Y%m%d'))]['service_id'])
+        
+        # Combinar ambos conjuntos de servicios activos
+        valid_services = active_services.union(active_weekday_services)
+        
+        # Filtrar los trips activos
+        active_trips = trips[trips['service_id'].isin(valid_services)]
+        
+        # Unir stop_times con trips filtrados
+        stop_routes = stop_times.merge(active_trips[['trip_id', 'route_id', 'direction_id']], on='trip_id', how='inner')
+        
+        # Contar frecuencia de paso por stop_id y route_id
+        stop_routes_count = stop_routes.groupby(['stop_id', 'route_id', 'direction_id']).size().reset_index(name='frequency')
+        
+        # Unir con nombres de paradas y rutas
+        stops_with_routes = stop_routes_count.merge(stops[['stop_id', 'stop_name']], on='stop_id', how='left')
+        stops_with_routes = stops_with_routes.merge(routes[['route_id', 'route_short_name', 'route_color']], on='route_id', how='left')
+        
+        # Filtrar por la parada seleccionada
+        selected_stop_routes = stops_with_routes[stops_with_routes['stop_name'] == selected_stop_name]
+        
+        if not selected_stop_routes.empty:
+            directions = {0: ("🚀➡️ Ida", "blue"), 1: ("🔄⬅️ Vuelta", "red")}
+            
+            for direction_id, (direction_label, color) in directions.items():
+                direction_data = selected_stop_routes[selected_stop_routes['direction_id'] == direction_id]
+                
+                if not direction_data.empty:
+                    st.markdown(f"### <span style='color:{color};'>{direction_label}</span>", unsafe_allow_html=True)
+                    direction_data = direction_data.sort_values(by='frequency', ascending=False)
+                    
+                    for _, row in direction_data.iterrows():
+                        st.markdown(f"🚍 <span style='color:{color};'>**Línea {row['route_short_name']}**</span> - {row['frequency']} pasadas/día", unsafe_allow_html=True)
+        else:
+            st.write("No hay rutas registradas para esta parada en la fecha seleccionada.")
+            return selected_stop_name  
+    else:
+        st.write("No se encontró la parada seleccionada.")
+    return selected_stop_name
+
+
+def show_routes_map_per_stop(gtfs_data, selected_stop_name):
+    if not selected_stop_name:
+        return
+
+    route_legends = []  # Lista para almacenar las leyendas de las rutas
+    stops = gtfs_data['stops']
+    trips = gtfs_data['trips']
+    routes = gtfs_data['routes']
+    shapes = gtfs_data['shapes']
+    stop_times = gtfs_data['stop_times']
+
+    # Obtener información de la parada seleccionada
+    selected_stop_data = stops[stops['stop_name'] == selected_stop_name]
+    if selected_stop_data.empty:
+        st.write("No se encontraron datos para la parada seleccionada.")
+        return
+
+    # Crear un mapa centrado en la parada
+    m = folium.Map(
+        location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]], 
+        zoom_start=15
+    )
+
+    # Agregar marcador de la parada
+    folium.Marker(
+        location=[selected_stop_data['stop_lat'].iloc[0], selected_stop_data['stop_lon'].iloc[0]],
+        popup=f"<strong>{selected_stop_name}</strong>",
+        icon=folium.Icon(color="green", icon="info-sign")
+    ).add_to(m)
+
+    # Obtener los route_id de las líneas que pasan por esta parada
+    selected_routes = stop_times[stop_times['stop_id'].isin(selected_stop_data['stop_id'])]['trip_id']
+    selected_routes = trips[trips['trip_id'].isin(selected_routes)]['route_id'].unique()
+
+    for route_id in selected_routes:
+        # Obtener el nombre y color de la línea
+        route_info = routes[routes['route_id'] == route_id]
+        if route_info.empty:
+            continue  # Saltar si no hay información de la ruta
+
+        route_name = route_info['route_short_name'].iloc[0] if 'route_short_name' in route_info else "Desconocida"
+        route_color = route_info['route_color'].iloc[0] if 'route_color' in route_info else "#000000"
+
+        # Asegurar que el color es válido
+        if not isinstance(route_color, str) or not route_color.startswith("#"):
+            route_color = "#" + route_color
+
+        # Obtener los shapes para la ruta seleccionada
+        route_shapes = shapes[shapes['shape_id'].isin(trips[trips['route_id'] == route_id]['shape_id'])]
+
+        if not route_shapes.empty:
+            # Convertir coordenadas en lista
+            route_coordinates = route_shapes[['shape_pt_lat', 'shape_pt_lon']].values.tolist()
+
+            # Dibujar la línea en el mapa
+            folium.PolyLine(route_coordinates, color=route_color, weight=2.5, opacity=1).add_to(m)
+
+        # Agregar leyenda para la línea
+        route_legends.append(f"<div style='color:{route_color};'>Línea {route_name}</div>")
+
+    # Mostrar leyenda de rutas
+    if route_legends:
+        st.markdown("<div style='font-size: 14px; font-weight: bold;'>Leyenda de rutas:</div>", unsafe_allow_html=True)
+        for legend in route_legends:
+            st.markdown(legend, unsafe_allow_html=True)
+
+    # Mostrar el mapa
+    st.subheader("Mapa de rutas y parada")
+    folium_static(m, 2000, 600)
