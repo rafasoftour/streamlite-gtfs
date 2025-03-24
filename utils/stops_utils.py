@@ -376,7 +376,10 @@ def show_routes_info_per_stop(gtfs_data):
         st.write(f"### Parada: {selected_stop_name}")
         
         # Obtener servicios activos en la fecha seleccionada
-        active_services = set(calendar_dates[calendar_dates['date'] == selected_date.strftime('%Y%m%d')]['service_id'])
+        active_services = set(calendar_dates[
+            (calendar_dates['date'] == selected_date.strftime('%Y%m%d')) & 
+            (calendar_dates['exception_type'] == 1)  # Solo incluir servicios activos en esa fecha
+        ]['service_id'])
         
         # Filtrar los servicios que están activos en el día de la semana seleccionado
         weekday_columns = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
