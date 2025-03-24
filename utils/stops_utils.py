@@ -373,7 +373,7 @@ def show_routes_info_per_stop(gtfs_data):
     selected_stop_data = stops[stops['stop_name'] == selected_stop_name]
     
     if not selected_stop_data.empty:
-        st.write(f"### Parada: {selected_stop_name}")
+        st.write(f"### Parada: {selected_stop_name} (Paradas en fecha seleccionada)")
         
         # Obtener servicios activos en la fecha seleccionada
         active_services = set(calendar_dates[
@@ -418,7 +418,7 @@ def show_routes_info_per_stop(gtfs_data):
                     direction_data = direction_data.sort_values(by='frequency', ascending=False)
                     
                     for _, row in direction_data.iterrows():
-                        st.markdown(f"🚍 <span style='color:{color};'>**Línea {row['route_short_name']}**</span> - {row['frequency']} pasadas/día", unsafe_allow_html=True)
+                        st.markdown(f"🚍 <span style='color:{color};'>**Línea {row['route_short_name']}**</span> - {row['frequency']} paradas/dia (stop_times)", unsafe_allow_html=True)
         else:
             st.write("No hay rutas registradas para esta parada en la fecha seleccionada.")
             return selected_stop_name  
@@ -489,7 +489,7 @@ def show_routes_map_per_stop(gtfs_data, selected_stop_name):
 
     # Mostrar leyenda de rutas
     if route_legends:
-        st.markdown("<div style='font-size: 14px; font-weight: bold;'>Leyenda de rutas:</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 14px; font-weight: bold;'>Todas las rutas que pasan (sin tener en cuenta el día):</div>", unsafe_allow_html=True)
         for legend in route_legends:
             st.markdown(legend, unsafe_allow_html=True)
 
