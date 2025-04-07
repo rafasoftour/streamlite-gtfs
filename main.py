@@ -3,6 +3,9 @@ from utils.gtfs_utils import load_gtfs_data, check_integrity, check_required_fil
 from utils.stops_utils import show_schedule_page, show_schedule_page2, show_routes_per_stop, show_routes_info_per_stop, show_routes_map_per_stop
 from utils.services_utils import show_services_page
 from utils.visualization import display_stops, display_calendar_and_dates, display_routes, display_route_map, display_route_directions, display_route_directions_map, display_route_directions_with_shapes
+from utils.validation_utils import check_unused_shapes, check_trips_without_stop_times, check_invalid_stop_ids, check_stops_far_from_shapes
+from utils.unused_shapes_utils import show_unused_shapes_page
+from utils.debug_utils import show_route_shape_debug_page
 
 st.set_page_config("Visor GTFS", layout="wide")
 
@@ -19,7 +22,8 @@ def show_gtfs_sidebar_and_content(gtfs_data):
     # 🔹 Sidebar principal con opciones
     page = st.sidebar.selectbox(
         "Selecciona una página",
-        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas", "Horarios de paradas", "Rutas por parada", "Información de servicios"]  
+        ["Inicio", "Paradas", "Calendario", "Rutas", "Mapa de Rutas", "Horarios de paradas", "Rutas por parada", "Información de servicios", "Validaciones de Shapes",
+        "Shapes no usados (fantasmas)", "Depuración de rutas"]  
     )
 
     if page == "Inicio":
@@ -54,6 +58,21 @@ def show_gtfs_sidebar_and_content(gtfs_data):
     elif page == "Información de servicios":
         show_services_page(gtfs_data)   
 
+    elif page == "Validaciones de Shapes":
+        st.title("Validaciones relacionadas con Shapes y Trips")
+        check_unused_shapes(gtfs_data)
+        st.divider()
+        check_trips_without_stop_times(gtfs_data) 
+        st.divider()
+        check_invalid_stop_ids(gtfs_data)
+        st.divider()
+        check_stops_far_from_shapes(gtfs_data)     
+
+    elif page == "Shapes no usados (fantasmas)":
+        show_unused_shapes_page(gtfs_data)
+
+    elif page == "Depuración de rutas":
+        show_route_shape_debug_page(gtfs_data)
 
 def show_route_selector_page(gtfs_data):
     """Muestra la página con el selector de rutas y el mapa de la ruta seleccionada"""

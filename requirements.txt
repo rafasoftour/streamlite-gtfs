@@ -3,4 +3,5 @@ streamlit_folium
 gtfs_kit
 pandas
 folium
+shapely
 # Añade cualquier otra dependencia que necesites
